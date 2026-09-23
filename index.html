@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MOTO TRILHA 3D — Jogo de Motocross Arcade</title>
+  <meta name="description" content="Jogo completo de motocross e trilha 3D para navegador com física arcade, 5 fases desafiadoras, moedas, checkpoints e gráficos estilizados em Three.js.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=Teko:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- Three.js r128 via CDN confiável -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <!-- Contêiner do Canvas 3D -->
+  <div id="game-container"></div>
+
+  <!-- Camada de Interface do Usuário (HUD e Menus) -->
+  <div id="ui-layer">
+    
+    <!-- ==================== MENU PRINCIPAL ==================== -->
+    <div id="main-menu" class="screen-overlay active">
+      <div class="menu-brand">
+        <div class="brand-badge">ARCADE 3D RACING</div>
+        <h1 class="game-title">MOTO TRILHA<span class="title-accent"> 3D</span></h1>
+        <p class="game-subtitle">Acelere fundo, domine as rampas e vença todas as trilhas!</p>
+      </div>
+
+      <div class="menu-buttons">
+        <button id="btn-play" class="btn btn-primary btn-large">
+          <span class="btn-icon">▶</span> JOGAR
+        </button>
+        <button id="btn-stages" class="btn btn-secondary">
+          <span class="btn-icon">🏁</span> FASES
+        </button>
+        <button id="btn-how-to" class="btn btn-secondary">
+          <span class="btn-icon">🎮</span> COMO JOGAR
+        </button>
+        <button id="btn-settings" class="btn btn-secondary">
+          <span class="btn-icon">⚙️</span> CONFIGURAÇÕES
+        </button>
+      </div>
+
+      <div class="menu-footer">
+        <span>Controles: <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> ou <kbd>Setas</kbd> | <kbd>R</kbd> Reiniciar</span>
+      </div>
+    </div>
+
+    <!-- ==================== SELEÇÃO DE FASES ==================== -->
+    <div id="stages-modal" class="modal-overlay hidden">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <h2>ESCOLHA A FASE</h2>
+          <button class="btn-close" id="btn-close-stages">✕</button>
+        </div>
+        <div class="stages-grid" id="stages-grid">
+          <!-- As 5 fases serão renderizadas dinamicamente pelo JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== COMO JOGAR ==================== -->
+    <div id="how-to-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>COMO JOGAR</h2>
+          <button class="btn-close" id="btn-close-how-to">✕</button>
+        </div>
+        <div class="modal-body how-to-content">
+          <div class="control-row">
+            <div class="key-combo"><kbd>W</kbd> / <kbd>▲</kbd></div>
+            <div class="control-desc"><strong>Acelerar:</strong> Ganhe velocidade e impulsione a moto nas rampas.</div>
+          </div>
+          <div class="control-row">
+            <div class="key-combo"><kbd>S</kbd> / <kbd>▼</kbd></div>
+            <div class="control-desc"><strong>Frear / Ré:</strong> Reduza antes de curvas ou terrenos perigosos.</div>
+          </div>
+          <div class="control-row">
+            <div class="key-combo"><kbd>A</kbd> / <kbd>◄</kbd></div>
+            <div class="control-desc"><strong>Inclinar para Trás:</strong> Empine ou execute giros (backflips) no ar.</div>
+          </div>
+          <div class="control-row">
+            <div class="key-combo"><kbd>D</kbd> / <kbd>►</kbd></div>
+            <div class="control-desc"><strong>Inclinar para Frente:</strong> Estabilize a descida e incline para frente.</div>
+          </div>
+          <div class="control-row">
+            <div class="key-combo"><kbd>R</kbd></div>
+            <div class="control-desc"><strong>Último Checkpoint:</strong> Retorna imediatamente se estiver preso ou capotado.</div>
+          </div>
+          <div class="control-row">
+            <div class="key-combo"><kbd>ESC</kbd></div>
+            <div class="control-desc"><strong>Pausa:</strong> Interrompe a corrida e abre as opções.</div>
+          </div>
+
+          <div class="tips-box">
+            <h4>💡 DICAS DE PILOTAGEM</h4>
+            <ul>
+              <li>Alinhe o ângulo da moto ao terreno para pousar suavemente sem capotar!</li>
+              <li>Colete todas as moedas para bater recordes e pontuação máxima.</li>
+              <li>Passar por arcos ativa <strong>Checkpoints</strong> para não recomeçar do zero.</li>
+              <li>Você tem <strong>3 tentativas</strong> por fase antes do Fim de Jogo.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="btn-start-from-how-to">ENTENDI, VAMOS LÁ!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== CONFIGURAÇÕES ==================== -->
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>CONFIGURAÇÕES</h2>
+          <button class="btn-close" id="btn-close-settings">✕</button>
+        </div>
+        <div class="modal-body settings-content">
+          <div class="setting-item">
+            <div class="setting-info">
+              <label for="slider-sfx">Efeitos Sonoros (SFX)</label>
+              <span id="sfx-val-text">80%</span>
+            </div>
+            <div class="setting-control">
+              <input type="range" id="slider-sfx" min="0" max="100" value="80">
+              <button id="toggle-sfx" class="btn-toggle active">ON</button>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label for="slider-music">Música Arcade</label>
+              <span id="music-val-text">50%</span>
+            </div>
+            <div class="setting-control">
+              <input type="range" id="slider-music" min="0" max="100" value="50">
+              <button id="toggle-music" class="btn-toggle active">ON</button>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label for="select-quality">Qualidade Gráfica</label>
+              <span class="setting-desc">Sombras dinâmicas e resolução</span>
+            </div>
+            <div class="setting-control">
+              <select id="select-quality" class="select-styled">
+                <option value="high">Alta (Sombras e Efeitos)</option>
+                <option value="medium" selected>Média (Fluida)</option>
+                <option value="low">Baixa (Desempenho Máximo)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label for="toggle-particles">Partículas & Poeira</label>
+              <span class="setting-desc">Efeitos de terra, poeira e faíscas</span>
+            </div>
+            <div class="setting-control">
+              <button id="toggle-particles" class="btn-toggle active">ATIVADO</button>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label for="slider-sens">Sensibilidade de Giro Aéreo</label>
+              <span id="sens-val-text">1.0x</span>
+            </div>
+            <div class="setting-control">
+              <input type="range" id="slider-sens" min="5" max="20" value="10">
+            </div>
+          </div>
+
+          <div class="setting-actions">
+            <button id="btn-reset-save" class="btn btn-danger btn-small">Zerar Progresso Salvo</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="btn-save-settings">SALVAR E VOLTAR</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== HUD DA CORRIDA ==================== -->
+    <div id="hud" class="hud-container hidden">
+      <!-- Barra Superior -->
+      <div class="hud-top">
+        <div class="hud-stage-badge">
+          <span class="stage-label">FASE <span id="hud-stage-num">1</span></span>
+          <span class="stage-name" id="hud-stage-title">Trilha Verde</span>
+        </div>
+
+        <div class="hud-progress-wrapper">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="hud-progress-fill"></div>
+            <div class="progress-marker" id="hud-progress-marker">🏍️</div>
+            <div class="progress-flag">🏁</div>
+          </div>
+          <div class="progress-distance"><span id="hud-distance-current">0</span>m / <span id="hud-distance-total">500</span>m</div>
+        </div>
+
+        <div class="hud-coins-display">
+          <div class="coin-icon">🪙</div>
+          <div class="coin-count" id="hud-coins">0</div>
+        </div>
+
+        <div class="hud-lives-display" title="Tentativas restantes">
+          <div class="lives-icons" id="hud-lives">
+            <span class="life-icon active">🪖</span>
+            <span class="life-icon active">🪖</span>
+            <span class="life-icon active">🪖</span>
+          </div>
+        </div>
+
+        <button id="btn-pause" class="btn-icon-circle" title="Pausar jogo (ESC)">⏸</button>
+      </div>
+
+      <!-- Banner de Checkpoint (animado dinamicamente) -->
+      <div id="checkpoint-banner" class="checkpoint-banner hidden">
+        <div class="cp-text">CHECKPOINT!</div>
+        <div class="cp-sub">Posição salva com sucesso</div>
+      </div>
+
+      <!-- Alerta de Capotamento / Respawn -->
+      <div id="crash-alert" class="crash-alert hidden">
+        <div class="crash-title">VOCÊ CAPOTOU!</div>
+        <div class="crash-sub">Pressione <kbd>R</kbd> ou aguarde o retorno</div>
+      </div>
+
+      <!-- Barra Inferior (Velocímetro e Indicadores) -->
+      <div class="hud-bottom">
+        <div class="speedometer">
+          <div class="speed-value" id="hud-speed">0</div>
+          <div class="speed-unit">KM/H</div>
+        </div>
+        <div class="hud-timer">
+          <span class="timer-icon">⏱️</span>
+          <span id="hud-timer-text">00:00.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== CONTROLES TOUCH MOBILE ==================== -->
+    <div id="touch-controls" class="touch-controls hidden">
+      <!-- Controles de Inclinação (Lado Esquerdo) -->
+      <div class="touch-group touch-left">
+        <button id="touch-tilt-back" class="touch-btn" aria-label="Inclinar para trás">↶</button>
+        <button id="touch-tilt-fwd" class="touch-btn" aria-label="Inclinar para frente">↷</button>
+      </div>
+
+      <!-- Controles de Aceleração e Freio (Lado Direito) -->
+      <div class="touch-group touch-right">
+        <button id="touch-respawn" class="touch-btn touch-btn-respawn" aria-label="Reiniciar Checkpoint">↺ R</button>
+        <button id="touch-brake" class="touch-btn touch-btn-brake" aria-label="Frear">FREIO</button>
+        <button id="touch-gas" class="touch-btn touch-btn-gas" aria-label="Acelerar">GAS</button>
+      </div>
+    </div>
+
+    <!-- ==================== MENU DE PAUSA ==================== -->
+    <div id="pause-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header text-center">
+          <h2>JOGO PAUSADO</h2>
+        </div>
+        <div class="pause-menu-buttons">
+          <button id="btn-resume" class="btn btn-primary btn-large">CONTINUAR</button>
+          <button id="btn-restart-checkpoint" class="btn btn-secondary">REINICIAR CHECKPOINT (R)</button>
+          <button id="btn-restart-stage" class="btn btn-secondary">RECOMEÇAR FASE</button>
+          <button id="btn-pause-settings" class="btn btn-secondary">CONFIGURAÇÕES</button>
+          <button id="btn-pause-to-menu" class="btn btn-danger">SAIR PARA O MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== FIM DE JOGO (GAME OVER) ==================== -->
+    <div id="game-over-modal" class="modal-overlay hidden">
+      <div class="modal-card text-center">
+        <div class="game-over-title">FIM DE JOGO</div>
+        <p class="game-over-desc">Você esgotou todas as 3 tentativas nesta fase!</p>
+        
+        <div class="stats-summary">
+          <div class="stat-box">
+            <div class="stat-label">Distância Percorrida</div>
+            <div class="stat-val" id="go-distance">0 m</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Moedas Coletadas</div>
+            <div class="stat-val" id="go-coins">0</div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="btn-retry-gameover" class="btn btn-primary btn-large">TENTAR NOVAMENTE</button>
+          <button id="btn-menu-gameover" class="btn btn-secondary">VOLTAR AO MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TELA DE VITÓRIA (FASE CONCLUÍDA) ==================== -->
+    <div id="victory-modal" class="modal-overlay hidden">
+      <div class="modal-card modal-victory text-center">
+        <div class="victory-banner">🏆 FASE CONCLUÍDA! 🏆</div>
+        <h2 id="victory-stage-name" class="victory-stage-title">Trilha Verde Finalizada</h2>
+        
+        <div class="victory-stars" id="victory-stars">
+          <span class="star active">★</span>
+          <span class="star active">★</span>
+          <span class="star active">★</span>
+        </div>
+
+        <div class="victory-stats-grid">
+          <div class="stat-card">
+            <span class="sc-label">Tempo</span>
+            <span class="sc-val" id="vic-time">00:00.0</span>
+            <span class="sc-sub" id="vic-best-time">Recorde: --</span>
+          </div>
+          <div class="stat-card">
+            <span class="sc-label">Moedas</span>
+            <span class="sc-val" id="vic-coins">0 / 0</span>
+            <span class="sc-sub" id="vic-coins-pct">0% coletadas</span>
+          </div>
+          <div class="stat-card">
+            <span class="sc-label">Checkpoints</span>
+            <span class="sc-val" id="vic-checkpoints">0 / 0</span>
+            <span class="sc-sub">Alcançados</span>
+          </div>
+          <div class="stat-card">
+            <span class="sc-label">Tentativas Restantes</span>
+            <span class="sc-val" id="vic-lives">3 / 3</span>
+            <span class="sc-sub">Bônus de pilotagem</span>
+          </div>
+        </div>
+
+        <div class="modal-actions victory-actions">
+          <button id="btn-next-stage" class="btn btn-primary btn-large">PRÓXIMA FASE ➔</button>
+          <button id="btn-repeat-stage" class="btn btn-secondary">REPETIR FASE</button>
+          <button id="btn-victory-menu" class="btn btn-secondary">MENU PRINCIPAL</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Script Principal do Jogo -->
+  <script src="script.js"></script>
+</body>
+</html>
